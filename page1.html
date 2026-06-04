@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Simple Age Calculator | Know your exact age</title>
+  <!-- Link to external CSS file as requested -->
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+
+<div class="age-card">
+  <h1>📅 Age Calculator</h1>
+  <div class="sub">Calculate your precise age — years, months & days</div>
+
+  <!-- Date input field -->
+  <div class="input-group">
+    <label>📆 Select your date of birth</label>
+    <div class="date-wrapper">
+      <input type="date" id="dobInput" value="2000-06-15" aria-label="Date of birth">
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button id="calculateBtn">✨ Calculate Age</button>
+    <button id="resetBtn">🔄 Reset</button>
+  </div>
+
+  <!-- dynamic result panel -->
+  <div id="resultArea" class="result-panel">
+    <div class="age-number">
+      <span class="big-years" id="displayYears">—</span>
+      <span class="age-unit">years old</span>
+    </div>
+    <div class="age-details" id="ageDetails">
+      <div class="detail-item"><span>📆 Months</span><span id="displayMonths">—</span></div>
+      <div class="detail-item"><span>📅 Days</span><span id="displayDays">—</span></div>
+      <div class="detail-item"><span>⏱️ Total days alive</span><span id="totalDays">—</span></div>
+    </div>
+  </div>
+  <div class="info-note">
+    ⚡ Accurate calculation based on today's date. Leap years and variable month lengths are considered.
+  </div>
+  <footer>simple & precise · real-time age</footer>
+</div>
+
+<script>
+  (function() {
+    // DOM elements
+    const dobInput = document.getElementById('dobInput');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    // Display elements
+    const displayYearsSpan = document.getElementById('displayYears');
+    const displayMonthsSpan = document.getElementById('displayMonths');
+    const displayDaysSpan = document.getElementById('displayDays');
+    const totalDaysSpan = document.getElementById('totalDays');
+    const resultArea = document.getElementById('resultArea');
+    
+    // Helper: show error message inside result panel
+    let errorDiv = null;
+    
+    function clearError() {
+      if (errorDiv && errorDiv.parentNode) {
+        errorDiv.remove();
+        errorDiv = null;
+      }
+      resultArea.style.opacity = '1';
+    }
+    
+    function showError(message) {
+      clearError();
+      errorDiv = document.createElement('div');
+      errorDiv.className = 'error-msg';
+      errorDiv.innerHTML = ⚠️ ${message};
+      resultArea.appendChild(errorDiv);
+      // reset displayed values to placeholder
+      displayYearsSpan.textContent = '—';
+      displayMonthsSpan.textContent = '—';
+      displayDaysSpan.textContent = '—';
+      totalDaysSpan.textContent = '—';
+    }
+    
+    // Core age calculation (UTC based, accurate for all dates)
+    function calculateExactAge(birthDate) {
+      const today = new Date();
+      // extract birth components using UTC (ensures input date from date picker is handled consistently)
+      const birthYear = birthDate.getUTCFullYear();
+      const birthMonth = birthDate.getUTCMonth(); // 0-11
+      const birthDay = birthDate.getUTCDate();
+      
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth();
+      const todayDay = today.getDate();
+      
+      // prevent future birth dates
+      const birthTimestamp = Date.UTC(birthYear, birthMonth, birthDay);
+      const todayTimestampUTC = Date.UTC(todayYear, todayMonth, todayDay);
+      if (birthTimestamp > todayTimestampUTC) {
+        return { error: "Birth date cannot be in the future! Please select a past date." };
+      }
+      
+      let years = todayYear - birthYear;
+      let months = todayMonth - birthMonth;
+      let days = todayDay - birthDay;
+      
+      // adjust days (negative means we borrow from previous month)
+      if (days < 0) {
+        const lastDayPrevMonth = new Date(todayYear, todayMonth, 0).getDate();
+        days = days + lastDayPrevMonth;
+        months--;
+      }
+      
+      // adjust months
+      if (months < 0) {
+        months = months + 12;
+        years--;
+      }
+      
+      if (years < 0) {
+        return { error: "Invalid date (future date detected)." };
+      }
+      
+      // total days alive (precise UTC difference)
+      const totalDaysAlive = Math.floor((todayTimestampUTC - birthTimestamp) / (1000 * 60 * 60 * 24));
+      
+      return {
+        years: years,
+        months: months,
+        days: days,
+        totalDays: totalDaysAlive,
+        valid: true
+      };
+    }
+    
+    // Main update function: read input, compute and refresh UI
+    function updateAgeFromInput() {
+      clearError();
+      const rawDate = dobInput.value;
+      if (!rawDate) {
+        showError("Please select your date of birth.");
+        return;
+      }
+      
+      const dateParts = rawDate.split('-');
+      if (dateParts.length !== 3) {
+        showError("Invalid date format. Use YYYY-MM-DD.");
+        return;
+      }
+      
+      const year = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1;
+      const day = parseInt(dateParts[2], 10);
+      
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        showError("Please enter a valid numeric date.");
+        return;
+      }
+      
+      // Create UTC date to avoid timezone shifts
+      const birthDate = new Date(Date.UTC(year, month, day));
+      // Validate that the date is correct (e.g., no Feb 30)
+      if (birthDate.getUTCFullYear() !== year || birthDate.getUTCMonth() !== month || birthDate.getUTCDate() !== day) {
+        showError("Invalid calendar date (e.g., February 30). Choose a real date.");
+        return;
+      }
+      
+      const ageResult = calculateExactAge(birthDate);
+      if (ageResult.error) {
+        showError(ageResult.error);
+        return;
+      }
+      
+      if (ageResult.valid) {
+        displayYearsSpan.textContent = ageResult.years;
+        displayMonthsSpan.textContent = ageResult.months;
+        displayDaysSpan.textContent = ageResult.days;
+        totalDaysSpan.textContent = ageResult.totalDays.toLocaleString();
+      }
+    }
+    
+    // Reset functionality: clear to default birth date and recalc
+    function resetToDefault() {
+      dobInput.value = "2000-06-15";
+      updateAgeFromInput();  // recalc fresh with default
+    }
+    
+    // Event listeners
+    calculateBtn.addEventListener('click', updateAgeFromInput);
+    resetBtn.addEventListener('click', resetToDefault);
+    
+    // Optional: initial calculation on page load (show age for default date)
+    updateAgeFromInput();
+  })();
+</script>
+</body>
+</html>
